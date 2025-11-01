@@ -1,0 +1,1 @@
+TOKEN = 'TG BOT TOKEN'

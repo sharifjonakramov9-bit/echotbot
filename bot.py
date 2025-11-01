@@ -1,5 +1,5 @@
+import json
 import requests
-
 from config import TOKEN
 
 TG_BOT_URL = f'https://api.telegram.org/bot{TOKEN}'
@@ -41,27 +41,52 @@ def send_location(chat_id: int | str, latitude: float, longitude: float):
     }
     requests.get(url, params=params)
 
+def save_user(user_data: dict):
+    with open('users.json', 'r') as f:
+        users = json.load(f)
+
+    for user in users:
+        if user['tg_id'] == user_data['tg_id']:
+            return None
+
+    users.append(user_data)
+
+    with open('users.json', 'w') as f:
+        json.dump(users, f, indent=4)
+
+    return user_data
+
 def main():
     offset = None
     limit = 100
 
     while True:
         for update in get_updates(offset, limit):
-            chat_id = update['message']['chat']['id']
+            if 'message' in update:
+                chat_id = update['message']['chat']['id']
 
-            if 'text' in update['message']:
-                text = update['message']['text']
-                if text == '/start':
-                    # add user to database
-                    text = 'salom, botga xush kelibsiz!'
+                if 'text' in update['message']:
+                    text = update['message']['text']
+                    user = update['message']['from']
+                    if text == '/start':
+                        new_user = {
+                            'tg_id': user['id'],
+                            'first_name': user['first_name'],
+                            'last_name': user.get('last_name'),
+                            'username': user.get('username')
+                        }
+                        new_user = save_user(new_user)
+                        text = 'salom, botga xush kelibsiz!'
+                        if new_user is None:
+                            text = 'salom, qaytganingiz bilan!'
 
-                send_message(chat_id, text)
-            elif 'photo' in update['message']:
-                photo = update['message']['photo'][-1]
-                send_photo(chat_id, photo['file_id'])
-            elif 'location' in update['message']:
-                location = update['message']['location']
-                send_location(chat_id, location['latitude'], location['longitude'])
+                    send_message(chat_id, text)
+                elif 'photo' in update['message']:
+                    photo = update['message']['photo'][-1]
+                    send_photo(chat_id, photo['file_id'])
+                elif 'location' in update['message']:
+                    location = update['message']['location']
+                    send_location(chat_id, location['latitude'], location['longitude'])
 
             offset = update['update_id'] + 1
 
